@@ -1,0 +1,344 @@
+---
+title: 'Practical 2: Comparing individual-level and summarized data (interactive)'
+output:
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+    toc_depth: 2
+    code_download: true
+    code_folding: show
+    css: style.css
+    #number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Setup
+## Install and load libraries
+
+```{r eval=FALSE}
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(ivpack, meta)
+```
+```{r include=FALSE}
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(ivpack, meta)
+```
+
+## Recap from practical 1
+In the first practical, we estimated the genetic associations with the risk factor <tt>`x`</tt> and with the continuous outcome <tt>`y`</tt> for each genetic variant in turn. We will need this, and the original data in this practical.
+The same associations and standard errors (summarized data) are often made available by large consortia. 
+
+```{r, eval=TRUE}
+rm(list=ls()) #Remove any existing objects in R 
+setwd("C:/Users/Amy/Documents/MR_practicals/MR-Course2") #Change to your downloaded files location
+ratio.all<-read.csv("summarized_data.csv", row=1)
+coursedata = read.csv("coursedata.csv") #Load data
+attach(coursedata) #Attach coursedata to the R search path 
+bx=ratio.all["bx",]
+by=ratio.all["by",]
+bxse=ratio.all["bxse",]
+byse=ratio.all["byse",]
+```
+
+# 1. Two-stage least squares and inverse-variance weighted estimates
+We can use summarized data (the genetic associations with the risk factor and with the outcome, with their standard errors) to estimate the causal effect of the risk factor on the outcome via the inverse-variance weighted (IVW) method: 
+$$IVW\ estimate\ = \frac{\sum_j \hat{\beta}_{Y_{j}} \hat{\beta}_{X_{j}} se(\hat{\beta}_{Y_{j}})^{-2}}{\sum_j \hat{\beta}_{X_{j}}^2 se(\hat{\beta}_{Y_{j}})^{-2}}$$  
+The standard error of the IVW estimate is:
+$$standard\ error\ of\ IVW\ estimate\ = \sqrt{\frac{1}{\sum_j \hat{\beta}_{X_{j}}^2 se(\hat{\beta}_{Y_{j}})^{-2}}}$$
+\vspace{6pt}
+
+a). Use the formula above to calculate the IVW estimate and standard error. 
+
+###  {.tabset .tabset-fade .tabset-pills}
+####
+\vspace{48pt}
+#### Code
+```{r eval=FALSE}
+beta.ivw = sum(bx*by*byse^-2)/sum(bx^2*byse^-2)
+beta.ivw #IVW estimate 
+se.ivw   = 1/sqrt(sum(bx^2*byse^-2))
+se.ivw #standard error of the IVW estimate 
+```
+\vspace{48pt}
+#### Answer
+```{r}
+beta.ivw = sum(bx*by*byse^-2)/sum(bx^2*byse^-2)
+beta.ivw #IVW estimate 
+se.ivw   = 1/sqrt(sum(bx^2*byse^-2))
+se.ivw #standard error of the IVW estimate 
+```
+\vspace{48pt}
+###
+
+b). How does the IVW estimate compare with the estimate (`r round(summary(ivreg(y~x|g1+g2+g3+g4, x=TRUE))$coef[2],3)`) and standard error (`r round(summary(ivreg(y~x|g1+g2+g3+g4, x=TRUE))$coef[2,2],3)`) from the two-stage least squares method using all of the genetic variants from the first practical?  
+\vspace{24pt}
+
+###  {.tabset .tabset-fade .tabset-pills}
+####
+\vspace{48pt}
+#### Answer
+_The estimate from the 2SLS method was `r summary(ivreg(y~x|g1+g2+g3+g4, x=TRUE))$coef[2]` with a standard error of `r summary(ivreg(y~x|g1+g2+g3+g4, x=TRUE))$coef[2,2]`, which is very similar to the estimates from the IVW approach._
+\vspace{48pt}
+
+ 
+
+# 2.	Motivation for the inverse-variance weighted formula
+In this section, we will provide three different methods that motivate the inverse-variance weighted formula defined above.  
+\vspace{3pt}
+
+a). First, the IVW method can be motivated by the meta-analysis of the ratio estimates from the individual variants, using the first-order standard errors. Calculate the ratio estimates and first-order standard errors for the four genetic variants:
+\vspace{6pt}
+```{r}
+beta.ratio.all =  t(by/bx) 
+se.ratio.all = t(byse/bx)
+```
+\vspace{6pt}
+You can now perform an inverse-variance weighted meta-analysis using the `metagen` command from the `meta` package:
+\vspace{6pt}
+```{r, eval=FALSE}
+metagen(beta.ratio.all, se.ratio.all)
+metagen(beta.ratio.all, se.ratio.all)$TE.fixed
+metagen(beta.ratio.all, se.ratio.all)$seTE.fixed
+```
+\vspace{6pt}
+Compare the fixed-effect estimate and standard error to the IVW estimate. Is a fixed-effect analysis always appropriate?
+\vspace{48pt}
+
+###  {.tabset .tabset-fade .tabset-pills}
+####
+\vspace{48pt}
+#### Answer
+```{r, eval=TRUE}
+metagen(beta.ratio.all, se.ratio.all)
+metagen(beta.ratio.all, se.ratio.all)$TE.fixed
+metagen(beta.ratio.all, se.ratio.all)$seTE.fixed
+```
+_The fixed-effect estimate and standard error using the `metagen` command is identical to the IVW estimate and standard error. A fixed-effect analysis may not be appropriate if there is heterogeneity between the causal estimates._
+\vspace{48pt}
+
+###
+
+
+b). Secondly, the IVW method can also be motivated as a ratio estimate using a weighted allele sore as an instrumental variable. We use the estimated genetic associations with the risk factor to create an allele score:
+\vspace{6pt}
+```{r}
+score <- g1*as.numeric(bx[1]) + g2*as.numeric(bx[2]) + g3*as.numeric(bx[3]) + g4*as.numeric(bx[4])
+```
+\vspace{6pt}
+
+Calculate the ratio estimate and its standard error (first-order) using this score as an instrumental variable and answer the following questions: 
+
+* How do these results compare to those above?
+
+###  {.tabset .tabset-fade .tabset-pills}
+####
+\vspace{48pt}
+#### Answer
+```{r}
+ivmodel.score = ivreg(y~x|score, x=TRUE)
+summary(ivmodel.score)
+```
+_The results of the above model are very similar to those from using the genetic variants as the instrument_
+\vspace{48pt}
+
+###
+
+* How is the allele score similar to the fitted values of the risk factor in the two-stage least squares method? 
+
+###  {.tabset .tabset-fade .tabset-pills}
+####
+\vspace{48pt}
+#### Answer
+_The difference between the allele score and the fitted values is approximately the intercept term from the regression of the risk factor on all the genetic variants._
+\vspace{48pt}
+
+###
+
+
+c). Thirdly, it is motivated by weighted linear regression of the genetic association estimates, with the intercept set to zero. Use the following code to fit the weighted linear regression model and obtain the causal estimate: 
+\vspace{6pt}
+```{r, eval=FALSE}
+BY<-t(by) # rotates data to a column vector
+BX<-t(bx)
+BYSE<-t(byse)
+BXSE<-t(bxse)
+
+regression<- lm(BY~BX-1, weights = BYSE^-2)
+summary(regression) 
+summary(regression)$coef[1]   
+summary(regression)$coef[1,2]/summary(regression)$sigma 
+```
+\vspace{6pt}
+
+* How do these results compare to those in parts a). and b).? 
+
+###  {.tabset .tabset-fade .tabset-pills}
+####
+\vspace{48pt}
+#### Answer
+```{r, eval=TRUE}
+BY<-t(by) # rotates data to a column vector
+BX<-t(bx)
+BYSE<-t(byse)
+BXSE<-t(bxse)
+
+regression<- lm(BY~BX-1, weights = BYSE^-2)
+summary(regression) 
+summary(regression)$coef[1]   
+summary(regression)$coef[1,2]/summary(regression)$sigma 
+```
+_The results from the weighted linear regression model are the same as those reported in parts a). and b)._
+\vspace{48pt}
+
+###
+
+
+* Why do we divide the standard error by the sigma quantity in the final line of code?
+
+###  {.tabset .tabset-fade .tabset-pills}
+####
+\vspace{48pt}
+#### Answer
+_We want to avoid under underdispersion (the estimate being more precise than from a fixed-effect meta-analysis). If sigma, which is the standard deviation of the variant-specific estimates, is less than 1, then the dispersion of the estimates is lower than one would expect due to chance alone (based on the precision of the estimates).
+However if sigma had been >1,  then the variant-specific estimates are more heterogeneous than one would expect due to chance alone based on the precision of the estimates. We want to allow for over dispersion to make confidence intervals wider, but but not allow underdispersion to make the confidence intervals narrower.
+So standard error of the causal estimate is divided by sigma (estimate of the residual standard error) to force the residual standard error to be at least one._
+\vspace{48pt}
+
+###
+
+
+# 3. Visual representation of data
+a). Use the code below to draw a scatter plot of the genetic associations with the risk factor and with the outcome:
+\vspace{6pt}
+```{r, warning=FALSE, eval=FALSE}
+plot(BX, BY, xlim=c(min(BX-2*BXSE, 0), max(BX+2*BXSE, 0)),
+  ylim=c(min(BY-2*BYSE, 0), max(BY+2*BYSE, 0)))
+for (j in 1:length(BX)) {
+ lines(c(BX[j],BX[j]), c(BY[j]-1.96*BYSE[j], BY[j]+1.96*BYSE[j]))
+ lines(c(BX[j]-1.96*BXSE[j],BX[j]+1.96*BXSE[j]), c(BY[j], BY[j]))
+          }
+abline(h=0, lwd=1); abline(v=0, lwd=1)
+```
+\vspace{12pt}
+
+###  {.tabset .tabset-fade .tabset-pills}
+####
+\vspace{48pt}
+#### Graph
+```{r echo=FALSE, warning=FALSE}
+plot(BX, BY, xlim=c(min(BX-2*BXSE, 0), max(BX+2*BXSE, 0)),
+  ylim=c(min(BY-2*BYSE, 0), max(BY+2*BYSE, 0)))
+for (j in 1:length(BX)) {
+ lines(c(BX[j],BX[j]), c(BY[j]-1.96*BYSE[j], BY[j]+1.96*BYSE[j]))
+ lines(c(BX[j]-1.96*BXSE[j],BX[j]+1.96*BXSE[j]), c(BY[j], BY[j]))
+          }
+abline(h=0, lwd=1); abline(v=0, lwd=1)
+```
+\vspace{48pt}
+
+###
+
+
+b). Using the scatter plot, answer the following questions: 
+
+* What do the lines around each point represent? 
+
+###  {.tabset .tabset-fade .tabset-pills}
+####
+\vspace{48pt}
+#### Answer
+_The lines represent the 95% confidence intervals for the genetic associations with the exposure and with the outcome._
+\vspace{48pt}
+
+###
+
+
+* Where would you expect the IVW estimate to lie on the plot? 
+
+###  {.tabset .tabset-fade .tabset-pills}
+####
+\vspace{48pt}
+#### Code
+The IVW estimate can be added to the plot using the code: `abline(a=0, b=sum(bx*by*byse^-2)/sum(bx^2*byse^-2),col="red")`
+\vspace{48pt}
+
+#### Answer
+
+```{r echo=FALSE, warning=FALSE}
+plot(BX, BY, xlim=c(min(BX-2*BXSE, 0), max(BX+2*BXSE, 0)),
+  ylim=c(min(BY-2*BYSE, 0), max(BY+2*BYSE, 0)))
+for (j in 1:length(BX)) {
+ lines(c(BX[j],BX[j]), c(BY[j]-1.96*BYSE[j], BY[j]+1.96*BYSE[j]))
+ lines(c(BX[j]-1.96*BXSE[j],BX[j]+1.96*BXSE[j]), c(BY[j], BY[j]))
+          }
+abline(h=0, lwd=1); abline(v=0, lwd=1)
+abline(a=0, b=sum(bx*by*byse^-2)/sum(bx^2*byse^-2),col="red")
+```
+\vspace{48pt}
+
+
+_The red line on the plot. It is the regression line that passes through zero and best fits the points_
+\vspace{48pt}
+
+###
+
+
+* How is the ratio estimate for each variant represented on the scatter plot? 
+
+###  {.tabset .tabset-fade .tabset-pills}
+####
+\vspace{48pt}
+#### Answer
+_The ratio estimate for each variant is the gradient of the line from the origin to the data point._
+\vspace{48pt}
+
+###
+
+
+* What other information can you obtain from the scatter plot? 
+
+###  {.tabset .tabset-fade .tabset-pills}
+####
+\vspace{48pt}
+#### Answer
+_There is a good range in the strength of the genetic associations with the risk factor, and the data points lie close to the IVW estimate (red line in the scatter plot). There also appears to be a dose-response relationship between the genetic associations with the risk factor and with the outcome._
+\vspace{48pt}
+
+###
+
+
+* Can you make a statement about heterogeneity of the ratio estimates from the various genetic variants?
+
+###  {.tabset .tabset-fade .tabset-pills}
+####
+\vspace{48pt}
+#### Answer
+_There appears to be little heterogeneity in the ratio estimates._ 
+\vspace{48pt}
+
+###
+
+
+* How would you identify pleiotropic variants using the scatter plot? 
+
+###  {.tabset .tabset-fade .tabset-pills}
+####
+\vspace{48pt}
+#### Answer
+_Pleiotropic variants may appear as outliers on the scatter plot._
+\vspace{48pt}
+
+###
+
+
+Finally, clean up your dataspace
+
+```{r}
+detach(coursedata)
+rm(list=ls())
+```
+
