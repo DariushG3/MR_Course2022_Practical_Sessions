@@ -35,8 +35,8 @@ The same associations and standard errors (summarized data) are often made avail
 ```{r, eval=TRUE}
 rm(list=ls()) #Remove any existing objects in R 
 setwd("C:/Users/Amy/Documents/MR_practicals/MR-Course2") #Change to your downloaded files location
-ratio.all<-read.csv("summarized_data.csv", row=1)
-coursedata = read.csv("coursedata.csv") #Load data
+ratio.all<-read.csv("C:\\Users\\dghasemisemeskandeh\\Desktop\\MR Course March 2022\\Practicals Data\\summarized_data.csv", row=1)
+coursedata = read.csv("C:\\Users\\dghasemisemeskandeh\\Desktop\\MR Course March 2022\\Practicals Data\\coursedata.csv") #Load data
 attach(coursedata) #Attach coursedata to the R search path 
 bx=ratio.all["bx",]
 by=ratio.all["by",]
